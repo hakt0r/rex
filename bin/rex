@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+coffee = require('coffee-script')
+tiamat = require('../lib/bot.coffee')

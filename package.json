@@ -1,0 +1,36 @@
+{
+  "name": "rex",
+  "version": "0.0.2",
+  "description": "Rex - the automagic bot",
+  "main": "bot/main.js",
+  "dependencies": {
+    "coffee-script": "~1.5.0",
+    "tail": "~0.2.4",
+    "ncurses": "~0.4.1",
+    "node-expat": "~2.0.0",
+    "colors": "~0.6.0-1",
+    "feedparser": "~0.13.4",
+    "request": "~2.14.0",
+    "iconv": "~2.0.5",
+    "express": "~3.1.2",
+    "jugglingdb": "~0.2.0-23",
+    "jugglingdb-sqlite3": "~0.0.2",
+    "irc": "~0.3.6",
+    "node-stringprep": "~0.1.0",
+    "node-xmpp": "~0.3.2",
+    "otr": "~0.1.4",
+    "otr3": "~0.0.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hakt0r/rex/rex.git"
+  },
+  "keywords": [
+    "bot",
+    "xmpp",
+    "irc"
+  ],
+  "author": "anx",
+  "license": "GPLv3",
+  "gitHead": "61f91f49ff3894ad3f6e3f0e80e68e8f6aa424d9"
+}
