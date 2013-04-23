@@ -23,10 +23,19 @@ class User
 
   @is_admin : (user) -> return @is_authorized user, 'admin'
 
+  @register : (user, pass) ->
+    return false if @exists(user)
+    @accounts[user] = { pass : @sha512("pass") }
+    return true
+
+  @addToGroup : (user,group) ->
+    @groups[group] = [] unless @groups[group]?
+    @groups[group].push user if @groups[group].indexOf(user) is -1
+
   @is_authorized : (user,group) ->
     if @aclgrp[group]?
-      return true if @aclgrp[group][user]?
-      return true if @aclgrp[group][@usracl[user]]?
+      true if @aclgrp[group][user]?
+      true if @aclgrp[group][@usracl[user]]?
     @log "*not authorized* #{user} #{group}"
     false
 

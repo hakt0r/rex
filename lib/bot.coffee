@@ -72,30 +72,53 @@ class Bot extends EventEmitter
   json        : json
 
   constructor : (opts={}) ->
-    { @project, @project_lib, @config_path, modules } = opts
-    @project_mode = unless @project?
-      @project = "rex"
-      @project_lib = PREFIX
-      no
-    else yes
-    @config_path = "#{PREFIX}/etc" unless @config_path?
-    @config_file = "#{PREFIX}/etc/roxbot.local.json"
+    _boot = =>
+      @base_commands() # add basic commands
+      _init = (config) =>
+        for module, childs of config
+          if config.isArray?
+            @load_module childs
+          else
+            @load_module module
+            _init childs if childs? and typeof childs is "object"
+      mods = @config.modules
+      mods.push m for m in modules if modules?
+      _init mods # load modules
 
+    { @project, @project_lib, @config_path, @config_file,
+      @bootstrap, modules } = opts
+
+    @project_mode =
+      unless @project?
+        @project = "rex"
+        @project_lib = PREFIX
+        no
+      else yes
+    @config_path = "#{PREFIX}/etc"                   unless @config_path?
+    @config_file = "#{PREFIX}/etc/roxbot.local.json" unless @config_file?
     @PREFIX = PREFIX
     @api.Bot = @
-    @reload()                             # load config file
-    @load_module mod for mod in @modules  # load core modules
-    @base_commands()                      # add basic commands
-    _init = (config) =>
-      for module, childs of config
-        if config.isArray?
-          @load_module childs
-        else
-          @load_module module
-          _init childs if childs? and typeof childs is "object"
-    mods = @config.modules
-    mods.push m for m in modules if modules?
-    _init mods # load modules
+
+    if fs.existsSync @config_file
+      @reload()
+      @load_module mod for mod in @modules  # load core modules
+      _boot()
+    else if @bootstrap?
+      console.log "First-run init for #{@project}."
+      @bootstrap (config) =>
+        @config = config if config? # write bootstrap config
+        @load_module mod for mod in @modules  # load core modules
+        @api.User.register(config.admin.name,config.admin.pass)
+        @api.User.addToGroup(config.admin.name,'admin')
+        delete config.admin
+        @save(); @reload() # refresh config to be sure
+        _boot()
+    else
+      console.log "Loading defaults."
+      @load_module mod for mod in @modules  # load core modules
+      @config = { modules : [ "xmpp", "feed" ] }
+      _boot()
+      @save()
 
   # Log & Message functions
   message : (msg) => @emit("sendMessage", msg)
@@ -104,16 +127,31 @@ class Bot extends EventEmitter
 
   # Config handling
   save : => fs.writeFileSync(@config_file,JSON.stringify(@config))
+
   reload : =>
-    try
-      console.log "Try loading", @config_file
-      if fs.existsSync @config_file
-        @config = JSON.parse(fs.readFileSync(@config_file))
-      else
-        console.log "Loading defaults."
-        @config = { modules : [ "xmpp", "feed" ] }
-    catch e
-      console.error "Error reading config file. #{@config_file}", e
+    if fs.existsSync @config_file
+      try @config = JSON.parse(fs.readFileSync(@config_file))
+      catch e
+        console.error "Error reading existing config file. #{@config_file}", e
+        process.exit(1)
+    else
+      console.error "No config file found #{@config_file}"
+      process.exit(1)
+
+  _set_config : (c,a,v) ->
+    search = a.shift()
+    k = c[search] if c[search]?
+    if a.length > 0
+      k = c[search] = {} unless k?
+      return @_set_config k,a,v
+    c[search] = v
+
+  _find_config : (c,a) ->
+    search = a.shift()
+    k = c[search] if c[search]?
+    return undefined unless k?
+    return @_find_config k,a if a.length > 0
+    return k
 
   # Module handling
   depend : (name) ->
@@ -126,19 +164,6 @@ class Bot extends EventEmitter
       n = require.resolve(name)
       delete require.cache[n] if n? and require.cache[n]
       return require(name)
-    _set_config = (c,a,v) ->
-      search = a.shift()
-      k = c[search] if c[search]?
-      if a.length > 0
-        k = c[search] = {} unless k?
-        return _set_config k,a,v
-      c[search] = v
-    _find_config = (c,a) ->
-      search = a.shift()
-      k = c[search] if c[search]?
-      return undefined unless k?
-      return _find_config k,a if a.length > 0
-      return k
     canidates = [
       "#{PREFIX}/mod/#{name}.coffee",
       "#{PREFIX}/mod/#{name}/#{name.basename()}.coffee" ]
@@ -148,13 +173,14 @@ class Bot extends EventEmitter
         "#{@project_lib}/#{name}/#{name.basename()}.coffee" ]
     mod = _load f for f in canidates when fs.existsSync(f) 
     if mod?
-      config = _find_config @config, name.split_path() unless config?
+      config = @_find_config @config, name.split_path() unless config?
       if typeof mod is "function" then mod = mod.call(this,config)
       else
         if !config? and mod.defaults?
-          if typeof mod.defaults is "function" then config = mod.defaults.call(this)
+          if typeof mod.defaults is "function"
+            config = mod.defaults.call(this)
           else config = mod.defaults
-          _set_config @config, name.split_path(), config if config?
+          @_set_config @config, name.split_path(), config if config?
         if mod.libs?
           if mod.libs.isArray?
             for lib in mod.libs
@@ -179,6 +205,7 @@ class Bot extends EventEmitter
   # Command shortcut and base comands
   new_command : (opts={}) -> new @api.Command @, opts
   base_commands : ->
+    return
     @new_command
       cmd   : "!bot"
       admin : yes
@@ -251,7 +278,5 @@ class Bot extends EventEmitter
       @version = "rex the rtv roxbot (#{o.trim()})"
       @new_command cmd : "!version", fnc : (request) => request.reply @version
 
-# Setup
 process.on 'uncaughtException', (err) -> console.error err
-
 module.exports = Bot

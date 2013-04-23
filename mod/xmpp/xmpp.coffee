@@ -10,17 +10,17 @@ xmpp = require 'node-xmpp'
 module.exports =
 
   defaults :
-    jid            : "radio@ulzq.de"
-    password       : "r4d10"
-    xmpp_server    : "ulzq.de"
-    room_jid       : "ulzquorum@conf.ulzq.de"
+    jid            : "joe@example.com"
+    password       : "hackme"
+    server         : "jabber.example.com"
+    room_jid       : "roundtable@conf.jabber.example.com"
     room_nick      : "rex"
     room_passwd    : ""
     blurb          : false
 
   init : ( config )->
     ## Load configuration
-    { jid,password,xmpp_server,room_jid,room_nick,room_passwd } = config
+    { jid,password,server,room_jid,room_nick,room_passwd } = config
     subscribers = @config.core.user.subscribers
     room_jid_nick = "#{room_jid}/#{room_nick}"
 
@@ -28,7 +28,7 @@ module.exports =
     @api.Xmpp = Xmpp = new xmpp.Client
       jid: jid + '/bot'
       password: password
-      host: xmpp_server || null
+      host: server || null
     .on 'error', (e) -> console.log e
 
     ## Incoming connections
