@@ -5,6 +5,32 @@
   Licensed under GNU GPLv3
 ###
 
+class AnonymousApi
+  rules : {}
+  constructor : (elements) -> @[k] = v for k,v of elements
+  register : (opts={},p) =>
+    p = @rules unless p?
+    for k,v of opts
+      rule = p[k]
+      if rule?
+        if typeof rule is "function" then p[k] = [rule,v]
+        else if rule.length? then rule.push v
+        else @register v,rule
+      else p[k] = v
+  route : (request,message,rule) =>
+    rule = @rules unless rule?
+    for k,v of message when rule[k]?
+      if typeof rule[k] is "function"
+        console.log "api:call", k
+        rule[k].call(request,v)
+      else if rule[k].length?
+        for r in rule[k]
+          console.log "api:call", i, k
+          r.call(request,v)
+      else
+        console.log "+",k
+        @route request, v, rule[k]
+
 # Global dependencies
 events        = require 'events'
 child_process = require 'child_process'
@@ -54,24 +80,24 @@ class Bot extends EventEmitter
           CLI = require "./mod/core/cli"
           cli = new CLI -> return new Bot
 
-  api :
-  # node modules
-    fs : fs
-    util: util
-    net : net
-    iconv : iconv
-    crypto : crypto
-    request : request
-    child_process : child_process
-  # functions
-    setInt : setInt
-    sha512 : sha512
-    json : json
   modules     : [ 'core/command', 'core/user' ]
   commands    : {}
   json        : json
 
   constructor : (opts={}) ->
+    @api = new AnonymousAPI
+    # node modules
+      fs : fs
+      util: util
+      net : net
+      iconv : iconv
+      crypto : crypto
+      request : request
+      child_process : child_process
+    # functions
+      setInt : setInt
+      sha512 : sha512
+      json : json
     _boot = =>
       @base_commands() # add basic commands
       _init = (config) =>
